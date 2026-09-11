@@ -1,0 +1,25 @@
+[package]
+name = "concentrador_bascula"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+dotenvy = "0.15"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+sqlx = { version = "0.9", features = [
+    "sqlite",
+    "runtime-tokio",
+    "macros",
+    "uuid",
+    "chrono",
+    "migrate",
+] }
+reqwest = "0.13.5"
+tracing = "0.1"
+tracing-subscriber = "0.3"
