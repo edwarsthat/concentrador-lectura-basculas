@@ -1,8 +1,14 @@
+use std::net::SocketAddr;
+
 use crate::app::{error::AppError, router::build_router, state::AppState};
 
 pub mod app;
 pub mod db;
 pub mod security;
+pub mod routes;
+pub mod models;
+pub mod controller;
+pub mod services;
 
 #[tokio::main]
 async fn main() {
@@ -17,7 +23,14 @@ async fn run() -> Result<(), AppError> {
     dotenvy::dotenv().ok();
 
     let state = AppState::new().await?;
-    let _app = build_router(state);
+    let app = build_router(state.clone());
+    let listener = tokio::net::TcpListener::bind(&state.config.bind_addr).await?;
+    tracing::info!("escuchando en http://{}", listener.local_addr()?);
 
-    todo!("montar el router y arrancar el servidor")
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>()
+    ).await?;
+
+    Ok(())
 }
