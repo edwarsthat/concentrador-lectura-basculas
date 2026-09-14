@@ -9,6 +9,7 @@ pub mod routes;
 pub mod models;
 pub mod controller;
 pub mod services;
+pub mod validations;
 
 #[tokio::main]
 async fn main() {

@@ -1,5 +1,6 @@
 use sqlx::SqlitePool;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::app::config::Config;
 use crate::app::error::AppError;
@@ -11,6 +12,7 @@ use crate::db::sqlite::connect;
 pub struct AppState {
     pub pool: SqlitePool,
     pub config: Arc<Config>,
+    pub http: reqwest::Client,
 }
 
 impl AppState {
@@ -19,10 +21,16 @@ impl AppState {
     pub async fn new() -> Result<Self, AppError> {
         let config = Config::from_env()?;
         let pool = connect(&config.database_url).await?;
+        let http = reqwest::Client::builder()
+            .timeout(config.upstream_timeout)
+            .connect_timeout(Duration::from_secs(5))
+            .user_agent(concat!("concentrador-bascula/", env!("CARGO_PKG_VERSION")))
+            .build()?;
 
         Ok(Self {
             pool,
             config: Arc::new(config),
+            http
         })
     }
 }

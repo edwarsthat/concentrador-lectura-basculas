@@ -15,4 +15,7 @@ pub enum AppError {
 
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
+
+    #[error("no se pudo construir el cliente HTTP: {0}")]
+    Http(#[from] reqwest::Error),
 }

@@ -27,6 +27,7 @@ macro_rules! rate_limit {
 pub fn build_router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health).layer(rate_limit!(limites::HEALTH)))
+        .merge(crate::routes::dispositivos::routes())
         .with_state(state)
 }
 
