@@ -16,3 +16,11 @@ pub fn firma_validar(clave: &[u8], headers: &HeaderMap, cuerpo: &[u8]) -> bool {
     mac.update(cuerpo);
     mac.verify_slice(&firma).is_ok()
 }
+
+/// HMAC-SHA256 de `cuerpo` con `clave`, en hex. Es lo que va en `x-firma`.
+pub fn firmar(clave: &[u8], cuerpo: &[u8]) -> String {
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(clave).expect("HMAC acepta claves de cualquier largo");
+    mac.update(cuerpo);
+    hex::encode(mac.finalize().into_bytes())
+}

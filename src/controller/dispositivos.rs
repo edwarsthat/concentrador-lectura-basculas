@@ -1,15 +1,21 @@
-use axum::{body::Bytes, extract::State, http::HeaderMap};
-use chrono::DateTime;
-use reqwest::StatusCode;
+use axum::{
+    body::Bytes,
+    extract::{Query, State},
+    http::{HeaderMap, HeaderName, StatusCode, header},
+    response::IntoResponse,
+};
+use chrono::{DateTime, Utc};
+
 
 use crate::{
     app::{api_error::ApiError, state::AppState},
     models::{
         anclas_dispositivos::ArranqueValidado,
         eventos::{Evento, EventoEntrante, Registro},
+        hora::{HoraQuery, HoraRespuesta},
         registro_peso_calidad::PesajeValidado,
     },
-    security::validar::firma_validar,
+    security::validar::{firma_validar, firmar},
     services,
 };
 
@@ -91,4 +97,25 @@ pub async fn router_eventos(
     } else {
         StatusCode::CONFLICT
     })
+}
+
+pub async fn hora_actual(
+    State(state): State<AppState>,
+    Query(q): Query<HoraQuery>,
+) -> impl IntoResponse {
+    let respuesta = HoraRespuesta {
+        hora: Utc::now().timestamp(),
+        nonce: q.nonce,
+    };
+    // Se serializa a mano para firmar exactamente los bytes que se envían.
+    let cuerpo = serde_json::to_string(&respuesta).expect("HoraRespuesta siempre serializa");
+    let firma = firmar(state.config.api_key.as_bytes(), cuerpo.as_bytes());
+
+    (
+        [
+            (header::CONTENT_TYPE, "application/json".to_string()),
+            (HeaderName::from_static("x-firma"), firma),
+        ],
+        cuerpo,
+    )
 }
