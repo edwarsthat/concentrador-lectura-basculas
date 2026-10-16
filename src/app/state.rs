@@ -30,7 +30,7 @@ impl AppState {
         Ok(Self {
             pool,
             config: Arc::new(config),
-            http
+            http,
         })
     }
 }

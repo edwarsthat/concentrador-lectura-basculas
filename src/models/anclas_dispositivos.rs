@@ -1,11 +1,10 @@
 use chrono::{DateTime, TimeDelta, Utc};
-use sqlx::FromRow;
 use serde::Deserialize;
+use sqlx::FromRow;
 
 use crate::validations::comun::{
-    Validar, 
-    ValidacionError, 
-    no_negativo, requerido, texto, texto_opcional};
+    ValidacionError, Validar, no_negativo, requerido, texto, texto_opcional,
+};
 
 /// Ancla de reloj de un arranque del ESP32. El dispositivo no tiene RTC: al
 /// encender manda su contador monotónico y la Pi guarda su propia hora en ese
@@ -28,7 +27,8 @@ impl AnclaDispositivo {
     /// Reconstruye la hora real de una medición a partir de su contador
     /// monotónico (microsegundos, mismo arranque que esta ancla).
     pub fn resolver(&self, monotonico_medicion_us: i64) -> DateTime<Utc> {
-        let transcurrido = TimeDelta::microseconds(monotonico_medicion_us - self.monotonico_ancla_us);
+        let transcurrido =
+            TimeDelta::microseconds(monotonico_medicion_us - self.monotonico_ancla_us);
         self.hora_pi_ancla + transcurrido
     }
 }
@@ -58,8 +58,14 @@ impl Validar for ArranqueRequest {
     fn validar(self) -> Result<ArranqueValidado, ValidacionError> {
         Ok(ArranqueValidado {
             device_id: texto(requerido(self.device_id, "device_id")?, 64, "device_id")?,
-            sesion_arranque: no_negativo(requerido(self.sesion_arranque, "sesion_arranque")?, "sesion_arranque")?,
-            monotonico_ancla_us: no_negativo(requerido(self.monotonico_ancla_us, "monotonico_ancla_us")?, "monotonico_ancla_us")?,
+            sesion_arranque: no_negativo(
+                requerido(self.sesion_arranque, "sesion_arranque")?,
+                "sesion_arranque",
+            )?,
+            monotonico_ancla_us: no_negativo(
+                requerido(self.monotonico_ancla_us, "monotonico_ancla_us")?,
+                "monotonico_ancla_us",
+            )?,
             version_firmware: texto_opcional(self.version_firmware, 32, "version_firmware")?,
         })
     }
@@ -99,13 +105,19 @@ mod tests {
         let a = ancla(5_000_000);
         // 90 s después del ancla, en microsegundos
         let hora = a.resolver(5_000_000 + 90_000_000);
-        assert_eq!(hora, "2026-09-13T10:01:30Z".parse::<DateTime<Utc>>().unwrap());
+        assert_eq!(
+            hora,
+            "2026-09-13T10:01:30Z".parse::<DateTime<Utc>>().unwrap()
+        );
     }
 
     #[test]
     fn resolver_conserva_los_milisegundos() {
         let a = ancla(0);
         let hora = a.resolver(1_234_000);
-        assert_eq!(hora.timestamp_millis(), a.hora_pi_ancla.timestamp_millis() + 1_234);
+        assert_eq!(
+            hora.timestamp_millis(),
+            a.hora_pi_ancla.timestamp_millis() + 1_234
+        );
     }
 }

@@ -3,11 +3,11 @@ use std::net::SocketAddr;
 use crate::app::{error::AppError, router::build_router, state::AppState};
 
 pub mod app;
-pub mod db;
-pub mod security;
-pub mod routes;
-pub mod models;
 pub mod controller;
+pub mod db;
+pub mod models;
+pub mod routes;
+pub mod security;
 pub mod services;
 pub mod validations;
 
@@ -30,8 +30,9 @@ async fn run() -> Result<(), AppError> {
 
     axum::serve(
         listener,
-        app.into_make_service_with_connect_info::<SocketAddr>()
-    ).await?;
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

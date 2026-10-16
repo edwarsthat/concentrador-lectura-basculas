@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
 pub struct ValidacionError(String);
@@ -39,14 +38,23 @@ pub fn uuid(valor: &str, campo: &str) -> Result<Uuid, ValidacionError> {
 pub fn fecha(valor: &str, campo: &str) -> Result<DateTime<Utc>, ValidacionError> {
     DateTime::parse_from_rfc3339(valor.trim())
         .map(|f| f.with_timezone(&Utc))
-        .map_err(|_| ValidacionError::nuevo(format!("`{campo}` no es una fecha válida (se espera RFC 3339)")))
+        .map_err(|_| {
+            ValidacionError::nuevo(format!(
+                "`{campo}` no es una fecha válida (se espera RFC 3339)"
+            ))
+        })
 }
 
 /// Rechaza valores negativos (contadores, microsegundos, cantidades).
 /// Sirve para cualquier numérico: i64, f64, etc.
-pub fn no_negativo<T: PartialOrd + Default + Copy>(valor: T, campo: &str) -> Result<T, ValidacionError> {
+pub fn no_negativo<T: PartialOrd + Default + Copy>(
+    valor: T,
+    campo: &str,
+) -> Result<T, ValidacionError> {
     if valor < T::default() {
-        return Err(ValidacionError::nuevo(format!("`{campo}` no puede ser negativo")));
+        return Err(ValidacionError::nuevo(format!(
+            "`{campo}` no puede ser negativo"
+        )));
     }
     Ok(valor)
 }
@@ -59,7 +67,9 @@ pub fn en_rango<T: PartialOrd + Copy + std::fmt::Display>(
     campo: &str,
 ) -> Result<T, ValidacionError> {
     if valor < min || valor > max {
-        return Err(ValidacionError::nuevo(format!("`{campo}` debe estar entre {min} y {max}")));
+        return Err(ValidacionError::nuevo(format!(
+            "`{campo}` debe estar entre {min} y {max}"
+        )));
     }
     Ok(valor)
 }
@@ -184,8 +194,14 @@ mod tests {
     #[test]
     fn texto_opcional_ausente_o_vacio_es_none() {
         assert_eq!(texto_opcional(None, 32, "version_firmware").unwrap(), None);
-        assert_eq!(texto_opcional(Some("".into()), 32, "version_firmware").unwrap(), None);
-        assert_eq!(texto_opcional(Some("   ".into()), 32, "version_firmware").unwrap(), None);
+        assert_eq!(
+            texto_opcional(Some("".into()), 32, "version_firmware").unwrap(),
+            None
+        );
+        assert_eq!(
+            texto_opcional(Some("   ".into()), 32, "version_firmware").unwrap(),
+            None
+        );
     }
 
     #[test]
@@ -197,14 +213,24 @@ mod tests {
     #[test]
     fn texto_opcional_respeta_largo_max_en_caracteres() {
         // 5 caracteres, aunque en bytes sean más por las tildes
-        assert!(texto_opcional(Some("ñañañ".into()), 5, "x").unwrap().is_some());
+        assert!(
+            texto_opcional(Some("ñañañ".into()), 5, "x")
+                .unwrap()
+                .is_some()
+        );
         let e = texto_opcional(Some("ñañañá".into()), 5, "version_firmware").unwrap_err();
-        assert_eq!(e.mensaje(), "`version_firmware` supera el máximo de 5 caracteres");
+        assert_eq!(
+            e.mensaje(),
+            "`version_firmware` supera el máximo de 5 caracteres"
+        );
     }
 
     #[test]
     fn texto_recorta_y_devuelve_el_valor() {
-        assert_eq!(texto("  bascula-1 ".into(), 64, "device_id").unwrap(), "bascula-1");
+        assert_eq!(
+            texto("  bascula-1 ".into(), 64, "device_id").unwrap(),
+            "bascula-1"
+        );
     }
 
     #[test]

@@ -34,7 +34,7 @@ impl IntoResponse for ApiError {
                 // El detalle va al log, no al ESP32: no le sirve y podría filtrar rutas/SQL.
                 tracing::error!(error = %e, "fallo de base de datos");
                 (StatusCode::INTERNAL_SERVER_ERROR, "error_interno")
-            },
+            }
             ApiError::Validacion(_) => (StatusCode::BAD_REQUEST, "validacion"),
         };
         let mensaje = match &self {
