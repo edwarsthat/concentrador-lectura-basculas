@@ -1,24 +1,23 @@
 use chrono::{DateTime, TimeDelta, Utc};
-use serde::Deserialize;
 use sqlx::FromRow;
 
-use crate::validations::comun::{
-    ValidacionError, Validar, no_negativo, requerido, texto, texto_opcional,
-};
-
-/// Ancla de reloj de un arranque del ESP32. El dispositivo no tiene RTC: al
-/// encender manda su contador monotónico y la Pi guarda su propia hora en ese
-/// instante. Cada medición posterior trae su monotónico y se resuelve contra
-/// esta ancla.
+/// Ancla de reloj de un arranque del ESP32. Cada medición posterior de la
+/// misma sesión trae su monotónico y se resuelve contra esta ancla.
 #[derive(Debug, FromRow, Clone)]
 pub struct AnclaDispositivo {
     pub device_id: String,
     pub sesion_arranque: i64,
+    /// Nº de evento de la báscula que trajo el arranque.
+    pub transaccion: i64,
     /// `esp_timer_get_time()` del ESP32 en el momento del ancla, en
     /// microsegundos. Es un contador desde el arranque, no una fecha.
     pub monotonico_ancla_us: i64,
-    /// Hora de la Pi cuando llegó el ancla.
+    /// `hora` que mandó el ESP32; None si su reloj no era válido.
+    pub hora_dispositivo: Option<DateTime<Utc>>,
+    /// Hora usada como ancla: `hora_dispositivo` o, si falta, `recibido_en`.
     pub hora_pi_ancla: DateTime<Utc>,
+    /// true si se usó `recibido_en`: solo es fiable si el arranque llegó sin demora.
+    pub ancla_aproximada: bool,
     pub recibido_en: DateTime<Utc>,
     pub version_firmware: Option<String>,
 }
@@ -33,54 +32,31 @@ impl AnclaDispositivo {
     }
 }
 
-/// Cuerpo del POST /dispositivos/arranque tal como llega. Todo opcional
-/// para que la ausencia la reporte nuestra validación y no serde.
-#[derive(Debug, Deserialize)]
-pub struct ArranqueRequest {
-    pub device_id: Option<String>,
-    pub sesion_arranque: Option<i64>,
-    pub monotonico_ancla_us: Option<i64>,
-    pub version_firmware: Option<String>,
-}
-
-/// Lo mismo, ya comprobado. Solo lo que aporta el dispositivo.
+/// Lo que trae un evento de arranque, ya parseado. Solo lo que aporta el dispositivo.
 #[derive(Debug)]
 pub struct ArranqueValidado {
     pub device_id: String,
     pub sesion_arranque: i64,
-    pub monotonico_ancla_us: i64,
-    pub version_firmware: Option<String>,
-}
-
-impl Validar for ArranqueRequest {
-    type Datos = ArranqueValidado;
-
-    fn validar(self) -> Result<ArranqueValidado, ValidacionError> {
-        Ok(ArranqueValidado {
-            device_id: texto(requerido(self.device_id, "device_id")?, 64, "device_id")?,
-            sesion_arranque: no_negativo(
-                requerido(self.sesion_arranque, "sesion_arranque")?,
-                "sesion_arranque",
-            )?,
-            monotonico_ancla_us: no_negativo(
-                requerido(self.monotonico_ancla_us, "monotonico_ancla_us")?,
-                "monotonico_ancla_us",
-            )?,
-            version_firmware: texto_opcional(self.version_firmware, 32, "version_firmware")?,
-        })
-    }
+    pub transaccion: i64,
+    pub monotonico_us: i64,
+    pub hora: Option<DateTime<Utc>>,
+    pub version_firmware: String,
 }
 
 impl AnclaDispositivo {
-    /// Arma la fila a partir de lo validado y la hora de la Pi en ese instante.
+    /// Arma la fila a partir del arranque. El arranque puede llegar horas tarde
+    /// por la cola, así que manda la hora del ESP32; `ahora` es el último recurso.
     pub fn desde_arranque(datos: ArranqueValidado, ahora: DateTime<Utc>) -> Self {
         Self {
             device_id: datos.device_id,
             sesion_arranque: datos.sesion_arranque,
-            monotonico_ancla_us: datos.monotonico_ancla_us,
-            hora_pi_ancla: ahora,
+            transaccion: datos.transaccion,
+            monotonico_ancla_us: datos.monotonico_us,
+            hora_dispositivo: datos.hora,
+            hora_pi_ancla: datos.hora.unwrap_or(ahora),
+            ancla_aproximada: datos.hora.is_none(),
             recibido_en: ahora,
-            version_firmware: datos.version_firmware,
+            version_firmware: Some(datos.version_firmware),
         }
     }
 }
@@ -93,10 +69,24 @@ mod tests {
         AnclaDispositivo {
             device_id: "bascula-1".into(),
             sesion_arranque: 1,
+            transaccion: 1,
             monotonico_ancla_us,
+            hora_dispositivo: None,
             hora_pi_ancla: "2026-09-13T10:00:00Z".parse().unwrap(),
+            ancla_aproximada: false,
             recibido_en: "2026-09-13T10:00:00Z".parse().unwrap(),
             version_firmware: None,
+        }
+    }
+
+    fn arranque(hora: Option<DateTime<Utc>>) -> ArranqueValidado {
+        ArranqueValidado {
+            device_id: "bascula-1".into(),
+            sesion_arranque: 1,
+            transaccion: 9,
+            monotonico_us: 20_000_000,
+            hora,
+            version_firmware: "0.1.0".into(),
         }
     }
 
@@ -119,5 +109,34 @@ mod tests {
             hora.timestamp_millis(),
             a.hora_pi_ancla.timestamp_millis() + 1_234
         );
+    }
+
+    #[test]
+    fn desde_arranque_usa_la_hora_del_dispositivo_aunque_llegue_tarde() {
+        // Caso real de los logs: arranque de la 01:55 que llegó a las 15:31.
+        let hora_esp: DateTime<Utc> = "2026-10-16T01:55:27Z".parse().unwrap();
+        let llegada: DateTime<Utc> = "2026-10-16T15:31:48Z".parse().unwrap();
+        let a = AnclaDispositivo::desde_arranque(arranque(Some(hora_esp)), llegada);
+        assert_eq!(a.hora_pi_ancla, hora_esp);
+        assert_eq!(a.hora_dispositivo, Some(hora_esp));
+        assert_eq!(a.recibido_en, llegada);
+        assert!(!a.ancla_aproximada);
+    }
+
+    #[test]
+    fn desde_arranque_sin_hora_usa_la_llegada_y_la_marca_aproximada() {
+        let llegada: DateTime<Utc> = "2026-10-16T15:31:48Z".parse().unwrap();
+        let a = AnclaDispositivo::desde_arranque(arranque(None), llegada);
+        assert_eq!(a.hora_pi_ancla, llegada);
+        assert_eq!(a.hora_dispositivo, None);
+        assert!(a.ancla_aproximada);
+    }
+
+    #[test]
+    fn desde_arranque_copia_los_datos_del_evento() {
+        let a = AnclaDispositivo::desde_arranque(arranque(None), Utc::now());
+        assert_eq!(a.transaccion, 9);
+        assert_eq!(a.monotonico_ancla_us, 20_000_000);
+        assert_eq!(a.version_firmware.as_deref(), Some("0.1.0"));
     }
 }

@@ -17,6 +17,12 @@ pub enum ApiError {
 
     #[error("{0}")]
     Validacion(#[from] ValidacionError),
+
+    #[error("{0}")]
+    NoProcesable(String),
+
+    #[error("firma inválida")]
+    FirmaInvalida,
 }
 
 #[derive(Serialize)]
@@ -36,6 +42,8 @@ impl IntoResponse for ApiError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "error_interno")
             }
             ApiError::Validacion(_) => (StatusCode::BAD_REQUEST, "validacion"),
+            ApiError::NoProcesable(_) => (StatusCode::UNPROCESSABLE_ENTITY, "no_procesable"),
+            ApiError::FirmaInvalida => (StatusCode::UNAUTHORIZED, "firma_invalida"),
         };
         let mensaje = match &self {
             ApiError::Db(_) => "error interno, reintentar".to_string(),

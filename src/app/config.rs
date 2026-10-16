@@ -10,6 +10,7 @@ pub struct Config {
     pub upstream_url: String,
     pub upstream_timeout: Duration,
     pub bind_addr: String,
+    pub api_key: String,
 }
 
 impl Config {
@@ -17,6 +18,7 @@ impl Config {
         Ok(Self {
             database_url: required("DATABASE_URL")?,
             upstream_url: required("UPSTREAM_URL")?,
+            api_key: required("API_KEY")?,
             upstream_timeout: Duration::from_secs(parsed("UPSTREAM_TIMEOUT_SECS", 10)?),
             bind_addr: optional("BIND_ADDR").unwrap_or_else(|| "0.0.0.0:3000".into()),
         })
