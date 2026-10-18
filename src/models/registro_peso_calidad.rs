@@ -2,8 +2,6 @@ use chrono::{DateTime, Utc};
 use sqlx::FromRow;
 use uuid::Uuid;
 
-use crate::models::anclas_dispositivos::AnclaDispositivo;
-
 /// Un pesaje tal como queda guardado en SQLite. Los campos van agrupados por
 /// quién los produce.
 #[derive(Debug, FromRow)]
@@ -23,11 +21,11 @@ pub struct RegistroPesoCalidad {
     pub peso_kg: f64,
     /// `hora` del ESP32; None si su reloj no era válido.
     pub hora_dispositivo: Option<DateTime<Utc>>,
-    /// `esp_timer_get_time()` al pesar, para resolver contra el ancla.
+    /// `esp_timer_get_time()` al pesar. Solo como dato de diagnóstico.
     pub monotonico_us: i64,
 
     // ── lo que añade el servidor ───────────────────
-    /// Hora final: `hora_dispositivo`, o la resuelta con el ancla; None si no hay ninguna.
+    /// Hora final del pesaje; hoy es la misma que `hora_dispositivo`.
     pub hora_medicion: Option<DateTime<Utc>>,
     /// Cuándo lo recibió la Raspberry.
     pub recibido_en: DateTime<Utc>,
@@ -43,22 +41,13 @@ pub struct PesajeValidado {
     pub transaccion: i64,
     pub uid_tarjeta: String,
     pub peso_kg: f64,
-    pub hora: Option<DateTime<Utc>>,
+    pub hora: DateTime<Utc>,
     pub monotonico_us: i64,
 }
 
 impl RegistroPesoCalidad {
-    /// Arma la fila. La hora del ESP32 manda; si no vino, se resuelve con el
-    /// ancla de la sesión. `ancla` tiene que ser del mismo device y sesión.
-    pub fn desde_pesaje(
-        datos: PesajeValidado,
-        ancla: Option<&AnclaDispositivo>,
-        ahora: DateTime<Utc>,
-    ) -> Self {
-        let hora_medicion = datos
-            .hora
-            .or_else(|| ancla.map(|a| a.resolver(datos.monotonico_us)));
-
+    /// Arma la fila. La hora es la del RTC del ESP32, ya validada al parsear.
+    pub fn desde_pesaje(datos: PesajeValidado, ahora: DateTime<Utc>) -> Self {
         Self {
             id: Uuid::new_v4(),
             device_id: datos.device_id,
@@ -66,9 +55,9 @@ impl RegistroPesoCalidad {
             transaccion: datos.transaccion,
             uid_tarjeta: datos.uid_tarjeta,
             peso_kg: datos.peso_kg,
-            hora_dispositivo: datos.hora,
+            hora_dispositivo: Some(datos.hora),
             monotonico_us: datos.monotonico_us,
-            hora_medicion,
+            hora_medicion: Some(datos.hora),
             recibido_en: ahora,
             upstream: "pendiente".into(),
         }

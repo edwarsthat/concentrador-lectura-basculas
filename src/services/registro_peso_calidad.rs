@@ -1,30 +1,11 @@
 use chrono::Utc;
 use sqlx::SqlitePool;
 
-use crate::{
-    models::registro_peso_calidad::{PesajeValidado, RegistroPesoCalidad},
-    services::anclas_dispositivos::buscar_ancla,
-};
+use crate::models::registro_peso_calidad::{PesajeValidado, RegistroPesoCalidad};
 
 /// Guarda el pesaje. Devuelve false si ya existía (reintento).
 pub async fn crear_pesaje(pool: &SqlitePool, datos: PesajeValidado) -> Result<bool, sqlx::Error> {
-    // Solo hace falta el ancla si el ESP32 no trajo hora.
-    let ancla = match datos.hora {
-        Some(_) => None,
-        None => buscar_ancla(pool, &datos.device_id, datos.sesion_arranque).await?,
-    };
-
-    let registro = RegistroPesoCalidad::desde_pesaje(datos, ancla.as_ref(), Utc::now());
-
-    if registro.hora_medicion.is_none() {
-        // Se guarda igual: rechazarlo bloquearía la cola de la báscula.
-        tracing::warn!(
-            device_id = %registro.device_id,
-            sesion_arranque = registro.sesion_arranque,
-            transaccion = registro.transaccion,
-            "pesaje sin hora ni ancla de su sesión"
-        );
-    }
+    let registro = RegistroPesoCalidad::desde_pesaje(datos, Utc::now());
 
     let resultado = sqlx::query(
         "INSERT INTO registros_peso_calidad

@@ -33,21 +33,3 @@ pub async fn create_service_registro_anclas_dispositivos(
 
     Ok(resultado.rows_affected() == 1)
 }
-
-/// El ancla de una sesión, si su arranque ya llegó.
-pub async fn buscar_ancla(
-    pool: &SqlitePool,
-    device_id: &str,
-    sesion_arranque: i64,
-) -> Result<Option<AnclaDispositivo>, sqlx::Error> {
-    sqlx::query_as::<_, AnclaDispositivo>(
-        "SELECT device_id, sesion_arranque, transaccion, monotonico_ancla_us,
-                hora_dispositivo, hora_pi_ancla, ancla_aproximada, recibido_en, version_firmware
-         FROM anclas_dispositivos
-         WHERE device_id = ? AND sesion_arranque = ?",
-    )
-    .bind(device_id)
-    .bind(sesion_arranque)
-    .fetch_optional(pool)
-    .await
-}

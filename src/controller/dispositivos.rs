@@ -4,8 +4,7 @@ use axum::{
     http::{HeaderMap, HeaderName, StatusCode, header},
     response::IntoResponse,
 };
-use chrono::{DateTime, Utc};
-
+use chrono::Utc;
 
 use crate::{
     app::{api_error::ApiError, state::AppState},
@@ -55,7 +54,6 @@ pub async fn router_eventos(
     let registro: Registro = serde_json::from_value(entrante.registro)
         .map_err(|e| ApiError::NoProcesable(format!("registro invalido: {e}")))?;
 
-    let hora = registro.hora.and_then(|h| DateTime::from_timestamp(h, 0));
     let transaccion = i64::from(registro.transaccion);
 
     let nuevo = match registro.evento {
@@ -65,7 +63,7 @@ pub async fn router_eventos(
                 sesion_arranque: registro.sesion_arranque,
                 transaccion,
                 monotonico_us: registro.monotonico_us,
-                hora,
+                hora: Some(registro.hora),
                 version_firmware,
             };
             services::anclas_dispositivos::create_service_registro_anclas_dispositivos(
@@ -84,7 +82,7 @@ pub async fn router_eventos(
                 transaccion,
                 uid_tarjeta,
                 peso_kg,
-                hora,
+                hora: registro.hora,
                 monotonico_us: registro.monotonico_us,
             };
             services::registro_peso_calidad::crear_pesaje(&state.pool, datos).await?
