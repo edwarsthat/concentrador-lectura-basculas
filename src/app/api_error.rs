@@ -23,6 +23,9 @@ pub enum ApiError {
 
     #[error("firma inválida")]
     FirmaInvalida,
+
+    #[error("la hora del concentrador aun no esta sincronizada")]
+    HoraNoSincronizada,
 }
 
 #[derive(Serialize)]
@@ -35,15 +38,18 @@ struct CuerpoError {
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, codigo) = match &self {
-            ApiError::CuerpoInvalido(_) => (StatusCode::BAD_REQUEST, "cuerpo_invalido"),
+            ApiError::CuerpoInvalido(_) => (StatusCode::UNPROCESSABLE_ENTITY, "cuerpo_invalido"),
             ApiError::Db(e) => {
                 // El detalle va al log, no al ESP32: no le sirve y podría filtrar rutas/SQL.
                 tracing::error!(error = %e, "fallo de base de datos");
                 (StatusCode::INTERNAL_SERVER_ERROR, "error_interno")
             }
-            ApiError::Validacion(_) => (StatusCode::BAD_REQUEST, "validacion"),
+            ApiError::Validacion(_) => (StatusCode::UNPROCESSABLE_ENTITY, "validacion"),
             ApiError::NoProcesable(_) => (StatusCode::UNPROCESSABLE_ENTITY, "no_procesable"),
             ApiError::FirmaInvalida => (StatusCode::UNAUTHORIZED, "firma_invalida"),
+            ApiError::HoraNoSincronizada => {
+                (StatusCode::SERVICE_UNAVAILABLE, "hora_no_sincronizada")
+            }
         };
         let mensaje = match &self {
             ApiError::Db(_) => "error interno, reintentar".to_string(),

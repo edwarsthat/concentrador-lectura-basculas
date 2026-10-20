@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use crate::app::config::Config;
 use crate::app::error::AppError;
+use crate::app::reloj::Reloj;
 use crate::db::sqlite::connect;
 
 /// Lo que comparten todos los handlers. Se clona en cada request,
@@ -13,6 +14,7 @@ pub struct AppState {
     pub pool: SqlitePool,
     pub config: Arc<Config>,
     pub http: reqwest::Client,
+    pub reloj: Reloj,
 }
 
 impl AppState {
@@ -26,11 +28,13 @@ impl AppState {
             .connect_timeout(Duration::from_secs(5))
             .user_agent(concat!("concentrador-bascula/", env!("CARGO_PKG_VERSION")))
             .build()?;
+        let reloj = Reloj::default();
 
         Ok(Self {
             pool,
             config: Arc::new(config),
             http,
+            reloj,
         })
     }
 }

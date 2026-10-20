@@ -11,6 +11,7 @@ pub struct Config {
     pub upstream_timeout: Duration,
     pub bind_addr: String,
     pub api_key: String,
+    pub confiar_hora_sistema: bool,
 }
 
 impl Config {
@@ -21,6 +22,7 @@ impl Config {
             api_key: required("API_KEY")?,
             upstream_timeout: Duration::from_secs(parsed("UPSTREAM_TIMEOUT_SECS", 10)?),
             bind_addr: optional("BIND_ADDR").unwrap_or_else(|| "0.0.0.0:3000".into()),
+            confiar_hora_sistema: parsed("CONFIAR_HORA_SISTEMA", false)?,
         })
     }
 }

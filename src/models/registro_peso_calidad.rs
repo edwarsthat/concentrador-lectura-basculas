@@ -19,7 +19,8 @@ pub struct RegistroPesoCalidad {
     /// Tarjeta NFC leída junto con el peso (quién / qué se pesó).
     pub uid_tarjeta: String,
     pub peso_kg: f64,
-    /// `hora` del ESP32; None si su reloj no era válido.
+    /// `hora` del RTC del ESP32. El evento ya la exige, así que hoy siempre viene;
+    /// la columna admite NULL por las filas anteriores a ese cambio.
     pub hora_dispositivo: Option<DateTime<Utc>>,
     /// `esp_timer_get_time()` al pesar. Solo como dato de diagnóstico.
     pub monotonico_us: i64,

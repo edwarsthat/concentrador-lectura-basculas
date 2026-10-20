@@ -5,7 +5,7 @@ use crate::{
     security::rate_limit::{RateLimiter, limitar},
 };
 
-// Límite por IP de cada endpoint, en (pico de golpe, ritmo sostenido por minuto).
+/// Límite por IP de cada endpoint, en (pico de golpe, ritmo sostenido por minuto).
 ///
 /// El pico es lo que se tolera de una tacada con la cubeta llena; el ritmo es lo
 /// que queda una vez agotado. Los dos números conviven: un cliente puede gastar
@@ -16,7 +16,7 @@ mod limites {
     pub const HEALTH: (u32, u32) = (60, 60);
 }
 /// Cada endpoint estrena su propia cubeta: gastar el cupo de `/health` no puede
-/// dejar a nadie fuera de `/login`.
+/// dejar a nadie fuera de `/dispositivos/eventos`.
 macro_rules! rate_limit {
     ($limite:expr) => {{
         let (pico, por_minuto) = $limite;

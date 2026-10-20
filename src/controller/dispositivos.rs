@@ -4,13 +4,12 @@ use axum::{
     http::{HeaderMap, HeaderName, StatusCode, header},
     response::IntoResponse,
 };
-use chrono::Utc;
 
 use crate::{
     app::{api_error::ApiError, state::AppState},
     models::{
         anclas_dispositivos::ArranqueValidado,
-        eventos::{Evento, EventoEntrante, Registro},
+        eventos::{Evento, EventoEntrante, EventoValidado},
         hora::{HoraQuery, HoraRespuesta},
         registro_peso_calidad::PesajeValidado,
     },
@@ -31,10 +30,10 @@ pub async fn router_eventos(
     let entrante: EventoEntrante = serde_json::from_slice(&body)
         .map_err(|e| ApiError::NoProcesable(format!("cuerpo no reconocido: {e}")))?;
 
+    let validado = entrante.registro_validado();
+
     if entrante.rechazado {
-        let motivo = serde_json::from_value::<Registro>(entrante.registro.clone())
-            .err()
-            .map(|e| e.to_string());
+        let motivo = validado.err().map(|e| e.to_string());
 
         tracing::warn!(
             device_id = %entrante.device_id,
@@ -43,7 +42,7 @@ pub async fn router_eventos(
         );
         services::eventos_rechazados::guardar(
             &state.pool,
-            &entrante.device_id,
+            entrante.device_id.trim(),
             &entrante.registro,
             motivo,
         )
@@ -51,15 +50,19 @@ pub async fn router_eventos(
         return Ok(StatusCode::OK);
     }
 
-    let registro: Registro = serde_json::from_value(entrante.registro)
-        .map_err(|e| ApiError::NoProcesable(format!("registro invalido: {e}")))?;
+    // 422 y no 400: con 422 la báscula lo reenvía marcado; cualquier otro
+    // código lo reintenta para siempre y atasca su cola.
+    let EventoValidado {
+        device_id,
+        registro,
+    } = validado.map_err(|e| ApiError::NoProcesable(format!("registro invalido: {e}")))?;
 
     let transaccion = i64::from(registro.transaccion);
 
     let nuevo = match registro.evento {
         Evento::Arranque { version_firmware } => {
             let datos = ArranqueValidado {
-                device_id: entrante.device_id,
+                device_id,
                 sesion_arranque: registro.sesion_arranque,
                 transaccion,
                 monotonico_us: registro.monotonico_us,
@@ -77,7 +80,7 @@ pub async fn router_eventos(
             peso_kg,
         } => {
             let datos = PesajeValidado {
-                device_id: entrante.device_id,
+                device_id,
                 sesion_arranque: registro.sesion_arranque,
                 transaccion,
                 uid_tarjeta,
@@ -89,7 +92,8 @@ pub async fn router_eventos(
         }
     };
 
-    // 409 = ya lo teníamos (reintento); la báscula lo da por entregado igual que un 201.
+    // 409 = ya existía esa terna. La báscula lo trata igual que un 201 y lo
+    // borra de su cola (ver la tabla de respuestas del README del firmware).
     Ok(if nuevo {
         StatusCode::CREATED
     } else {
@@ -100,20 +104,21 @@ pub async fn router_eventos(
 pub async fn hora_actual(
     State(state): State<AppState>,
     Query(q): Query<HoraQuery>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, ApiError> {
+    let hora = state.reloj.ahora().ok_or(ApiError::HoraNoSincronizada)?;
     let respuesta = HoraRespuesta {
-        hora: Utc::now().timestamp(),
+        hora: hora.timestamp(),
         nonce: q.nonce,
     };
     // Se serializa a mano para firmar exactamente los bytes que se envían.
     let cuerpo = serde_json::to_string(&respuesta).expect("HoraRespuesta siempre serializa");
     let firma = firmar(state.config.api_key.as_bytes(), cuerpo.as_bytes());
 
-    (
+    Ok((
         [
             (header::CONTENT_TYPE, "application/json".to_string()),
             (HeaderName::from_static("x-firma"), firma),
         ],
         cuerpo,
-    )
+    ))
 }

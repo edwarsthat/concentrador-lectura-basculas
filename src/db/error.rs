@@ -5,7 +5,7 @@ pub enum ConnectError {
     #[error("DATABASE_URL must be set")]
     MissingDatabaseUrl,
 
-    #[error("failed to connect to Postgres: {0}")]
+    #[error("no se pudo conectar a SQLite: {0}")]
     Connection(#[from] sqlx::Error),
 
     #[error("no se pudieron aplicar las migraciones: {0}")]

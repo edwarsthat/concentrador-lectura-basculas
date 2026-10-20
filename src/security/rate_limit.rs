@@ -3,11 +3,11 @@
 //! La cubeta arranca llena (`capacidad` tokens), cada petición gasta uno y el
 //! tiempo la va rellenando a `por_minuto` tokens por minuto. Eso da dos números
 //! con significados distintos: `capacidad` es el pico que se tolera de golpe
-//! (una pantalla que dispara varias llamadas al abrirse) y `por_minuto` es el
+//! (una báscula que vacía su cola de golpe al reconectarse) y `por_minuto` es el
 //! ritmo sostenido que queda una vez agotado ese pico.
 //!
-//! El estado vive en memoria del proceso, igual que las sesiones: se pierde al
-//! reiniciar y no se comparte entre instancias del backend.
+//! El estado vive en memoria del proceso: se pierde al reiniciar y no se
+//! comparte entre instancias del concentrador.
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -72,9 +72,8 @@ impl RateLimiter {
         }
     }
 
-    /// Mismo criterio que el `SessionStore`: un panic con el lock tomado no
-    /// puede dejar el rate limit muerto para siempre, porque eso convierte
-    /// cualquier bug en una caída total del endpoint.
+    /// Un panic con el lock tomado no puede dejar el rate limit muerto para
+    /// siempre, porque eso convierte cualquier bug en una caída total del endpoint.
     fn escribir(&self) -> RwLockWriteGuard<'_, Estado> {
         self.inner.write().unwrap_or_else(|e| {
             Self::avisar_veneno();
@@ -303,13 +302,13 @@ mod tests {
 
     #[test]
     fn dos_limiters_no_comparten_estado() {
-        // cada endpoint monta el suyo: gastar el de /login no toca el de /health
-        let login = RateLimiter::por_minuto(1, 60);
+        // cada endpoint monta el suyo: gastar el de /eventos no toca el de /health
+        let eventos = RateLimiter::por_minuto(1, 60);
         let health = RateLimiter::por_minuto(1, 60);
         let ahora = Instant::now();
 
-        assert!(login.intentar_en(ip(1), ahora).is_ok());
-        assert!(login.intentar_en(ip(1), ahora).is_err());
+        assert!(eventos.intentar_en(ip(1), ahora).is_ok());
+        assert!(eventos.intentar_en(ip(1), ahora).is_err());
         assert!(health.intentar_en(ip(1), ahora).is_ok());
     }
 

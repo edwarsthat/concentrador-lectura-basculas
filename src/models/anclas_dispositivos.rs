@@ -12,7 +12,8 @@ pub struct AnclaDispositivo {
     /// `esp_timer_get_time()` del ESP32 en el momento del ancla, en
     /// microsegundos. Es un contador desde el arranque, no una fecha.
     pub monotonico_ancla_us: i64,
-    /// `hora` que mandó el ESP32; None si su reloj no era válido.
+    /// `hora` del RTC del ESP32. El evento ya la exige, así que hoy siempre viene;
+    /// la columna admite NULL por las filas anteriores a ese cambio.
     pub hora_dispositivo: Option<DateTime<Utc>>,
     /// Hora usada como ancla: `hora_dispositivo` o, si falta, `recibido_en`.
     pub hora_pi_ancla: DateTime<Utc>,

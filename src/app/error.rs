@@ -7,7 +7,7 @@ pub enum AppError {
     #[error("database error: {0}")]
     Database(#[from] ConnectError),
 
-    #[error("La variable de entorno {0} es oobligatoria")]
+    #[error("La variable de entorno {0} es obligatoria")]
     MissingEnv(&'static str),
 
     #[error("La variable de entorno {0} tiene un valor invalido")]

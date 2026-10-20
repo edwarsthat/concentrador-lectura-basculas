@@ -24,6 +24,9 @@ async fn run() -> Result<(), AppError> {
     dotenvy::dotenv().ok();
 
     let state = AppState::new().await?;
+    state
+        .reloj
+        .iniciar_vigilancia(state.config.confiar_hora_sistema);
     let app = build_router(state.clone());
     let listener = tokio::net::TcpListener::bind(&state.config.bind_addr).await?;
     tracing::info!("escuchando en http://{}", listener.local_addr()?);
