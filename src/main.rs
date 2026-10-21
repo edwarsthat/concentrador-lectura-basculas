@@ -6,6 +6,7 @@ pub mod app;
 pub mod controller;
 pub mod db;
 pub mod models;
+pub mod reenvio;
 pub mod routes;
 pub mod security;
 pub mod services;
@@ -27,6 +28,7 @@ async fn run() -> Result<(), AppError> {
     state
         .reloj
         .iniciar_vigilancia(state.config.confiar_hora_sistema);
+    reenvio::iniciar(state.clone());
     let app = build_router(state.clone());
     let listener = tokio::net::TcpListener::bind(&state.config.bind_addr).await?;
     tracing::info!("escuchando en http://{}", listener.local_addr()?);

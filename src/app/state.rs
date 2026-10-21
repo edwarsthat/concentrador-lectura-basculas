@@ -1,6 +1,7 @@
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Notify;
 
 use crate::app::config::Config;
 use crate::app::error::AppError;
@@ -15,6 +16,7 @@ pub struct AppState {
     pub config: Arc<Config>,
     pub http: reqwest::Client,
     pub reloj: Reloj,
+    pub aviso_reenvio: Arc<Notify>,
 }
 
 impl AppState {
@@ -29,12 +31,14 @@ impl AppState {
             .user_agent(concat!("concentrador-bascula/", env!("CARGO_PKG_VERSION")))
             .build()?;
         let reloj = Reloj::default();
+        let aviso_reenvio = Arc::new(Notify::new());
 
         Ok(Self {
             pool,
             config: Arc::new(config),
             http,
             reloj,
+            aviso_reenvio,
         })
     }
 }

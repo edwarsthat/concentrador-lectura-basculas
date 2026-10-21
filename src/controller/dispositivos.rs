@@ -88,7 +88,11 @@ pub async fn router_eventos(
                 hora: registro.hora,
                 monotonico_us: registro.monotonico_us,
             };
-            services::registro_peso_calidad::crear_pesaje(&state.pool, datos).await?
+            let nuevo = services::registro_peso_calidad::crear_pesaje(&state.pool, datos).await?;
+            if nuevo {
+                state.aviso_reenvio.notify_one();
+            }
+            nuevo
         }
     };
 

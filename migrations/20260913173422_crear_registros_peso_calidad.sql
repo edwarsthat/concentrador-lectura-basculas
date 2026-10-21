@@ -17,10 +17,13 @@ CREATE TABLE registros_peso_calidad (
     hora_medicion        TEXT,               -- hora final: hora_dispositivo, o la resuelta con el ancla; NULL si aún no hay ninguna
     recibido_en          TEXT NOT NULL,
     upstream             TEXT NOT NULL DEFAULT 'pendiente',
+    intentos             INTEGER NOT NULL DEFAULT 0,   -- reenvíos fallidos hasta ahora
+    ultimo_error         TEXT,               -- mensaje del último fallo; NULL si no ha fallado
+    enviado_en           TEXT,               -- hora de la Pi (ISO-8601 UTC) en que el upstream lo aceptó; NULL si sigue pendiente
 
     -- Un reintento por timeout trae la misma terna: el INSERT choca aquí y se responde 409.
     UNIQUE (device_id, sesion_arranque, transaccion)
 );
 
--- El reenviador busca lo pendiente; sin índice recorre toda la tabla cada vez.
-CREATE INDEX idx_registros_upstream ON registros_peso_calidad (upstream);
+-- El reenviador busca lo pendiente en orden de llegada; sin índice recorre toda la tabla cada vez.
+CREATE INDEX idx_registros_upstream_recibido ON registros_peso_calidad (upstream, recibido_en);
