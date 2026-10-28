@@ -6,7 +6,7 @@ use crate::{
     reenvio::error::ErrorReenvio,
 };
 
-const RUTA_PESAJE: &str = "/api/pesajes";
+const RUTA_PESAJE: &str = "/pesaje";
 
 /// Tope del motivo que se guarda en `ultimo_error`: si la nube responde una
 /// página HTML de error, no queremos meter 50 KB en SQLite.
